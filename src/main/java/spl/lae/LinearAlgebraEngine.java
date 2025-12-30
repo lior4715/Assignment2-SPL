@@ -19,12 +19,13 @@ public class LinearAlgebraEngine {
 
     public ComputationNode run(ComputationNode computationRoot) {
         // TODO: resolve computation tree step by step until final matrix is produced
-        while(computationRoot.getNodeType() != ComputationNodeType.MATRIX){
+        while (computationRoot.getNodeType() != ComputationNodeType.MATRIX) {
             computationRoot.associativeNesting();
             ComputationNode resolvableNode = computationRoot.findResolvable();
             loadAndCompute(resolvableNode);
-            double[][] resultData = resolvableNode.getChildren().get(0).getMatrix();
-            if(resolvableNode == computationRoot){
+            double[][] resultData = leftMatrix.readRowMajor();
+            if (resolvableNode == computationRoot) {
+                resolvableNode.resolve(resultData);
                 return computationRoot;
             } else {
                 resolvableNode.resolve(resultData);
@@ -36,29 +37,31 @@ public class LinearAlgebraEngine {
     public void loadAndCompute(ComputationNode node) {
         // TODO: load operand matrices
         // TODO: create compute tasks & submit tasks to executor
-        if (node.getChildren().size() < 1) {
-            throw new IllegalArgumentException("Left child is null for node: " + node.getNodeType());
+        if (node.getChildren() == null || node.getChildren().size() < 1) {
+            throw new IllegalArgumentException("Node has no children: " + node.getNodeType());
         }
-        
+
         double[][] leftData = node.getChildren().get(0).getMatrix();
         leftMatrix.loadRowMajor(leftData);
 
-        if (node.getChildren().size() < 2 && 
-            (node.getNodeType() == ComputationNodeType.ADD || 
-             node.getNodeType() == ComputationNodeType.MULTIPLY)) {
-            throw new IllegalArgumentException("Right child is null for binary operation node: " + node.getNodeType());  
+        if (node.getNodeType() == ComputationNodeType.ADD ||
+                node.getNodeType() == ComputationNodeType.MULTIPLY) {
+
+            if (node.getChildren().size() < 2) {
+                throw new IllegalArgumentException("Binary operation requires two operands: " + node.getNodeType());
+            }
+
+            double[][] rightData = node.getChildren().get(1).getMatrix();
+            rightMatrix.loadRowMajor(rightData);
         }
 
-        if(node.getChildren().size() > 1 && (node.getNodeType() == ComputationNodeType.NEGATE ||
-           node.getNodeType() == ComputationNodeType.TRANSPOSE)) {
-            throw new IllegalArgumentException("Unary operation node has two children: " + node.getNodeType());
-        }
+        if (node.getNodeType() == ComputationNodeType.NEGATE ||
+                node.getNodeType() == ComputationNodeType.TRANSPOSE) {
 
-        double[][] rightData = node.getChildren().get(1).getMatrix();
-        rightMatrix.loadRowMajor(rightData);
-
-        if(node.getChildren().size() > 2){
-            throw new IllegalArgumentException("Node has more than two children: " + node.getNodeType());
+            if (node.getChildren().size() != 1) {
+                throw new IllegalArgumentException(
+                        "Unary operation requires exactly one operand: " + node.getNodeType());
+            }
         }
 
         List<Runnable> tasks = null;
@@ -84,7 +87,7 @@ public class LinearAlgebraEngine {
     public List<Runnable> createAddTasks() {
         // TODO: return tasks that perform row-wise addition
         List<Runnable> tasks = new java.util.ArrayList<>();
-        if(leftMatrix.length() != rightMatrix.length() || leftMatrix.get(0).length() != rightMatrix.get(0).length()) {
+        if (leftMatrix.length() != rightMatrix.length() || leftMatrix.get(0).length() != rightMatrix.get(0).length()) {
             throw new IllegalArgumentException("Matrices must have the same number of rows to add.");
         }
         for (int i = 0; i < leftMatrix.length(); i++) {
@@ -99,8 +102,9 @@ public class LinearAlgebraEngine {
     public List<Runnable> createMultiplyTasks() {
         // TODO: return tasks that perform row × matrix multiplication
         List<Runnable> tasks = new java.util.ArrayList<>();
-        if(leftMatrix.get(0).length() != rightMatrix.length()) {
-            throw new IllegalArgumentException("Number of columns in left matrix must equal number of rows in right matrix for multiplication.");
+        if (leftMatrix.get(0).length() != rightMatrix.length()) {
+            throw new IllegalArgumentException(
+                    "Number of columns in left matrix must equal number of rows in right matrix for multiplication.");
         }
         for (int i = 0; i < leftMatrix.length(); i++) {
             final int rowIndex = i;
@@ -126,12 +130,21 @@ public class LinearAlgebraEngine {
     public List<Runnable> createTransposeTasks() {
         // TODO: return tasks that transpose rows
         List<Runnable> tasks = new java.util.ArrayList<>();
-        for (int i = 0; i < leftMatrix.length(); i++) {
-            final int rowIndex = i;
-            tasks.add(() -> {
-                leftMatrix.get(rowIndex).transpose();
-            });
-        }
+        tasks.add(() -> {
+            double[][] data = leftMatrix.readRowMajor();
+            int rows = data.length;
+            int cols = data[0].length;
+
+            double[][] transposed = new double[cols][rows];
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    transposed[j][i] = data[i][j];
+                }
+            }
+
+            leftMatrix.loadRowMajor(transposed);
+        });
+
         return tasks;
     }
 
