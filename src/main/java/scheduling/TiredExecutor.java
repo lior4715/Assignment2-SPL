@@ -34,8 +34,18 @@ public class TiredExecutor {
             }
 
             try {
-                worker.newTask(task);
-                inFlight.incrementAndGet(); 
+                Runnable wrappedTask = () -> {
+                    try {
+                        task.run();
+                    } finally {
+                       
+                        inFlight.decrementAndGet();
+                        idleMinHeap.put(worker);
+                    }
+                };
+
+                worker.newTask(wrappedTask);
+                inFlight.incrementAndGet();
                 return;
             } catch (IllegalStateException e) {
                 idleMinHeap.put(worker);
@@ -51,7 +61,7 @@ public class TiredExecutor {
         }
         while (inFlight.get() > 0) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -62,8 +72,7 @@ public class TiredExecutor {
     public void shutdown() throws InterruptedException {
         // TODO
         for (TiredThread worker : workers) {
-            worker.interrupt();
-            worker.join();
+            worker.shutdown();
         }
     }
 
@@ -72,8 +81,9 @@ public class TiredExecutor {
         String report = "";
         for (TiredThread worker : workers) {
             report += String.format("Worker %d: Time Used = %d ns, Time Idle = %d ns, Fatigue = %.2f, Busy = %b\n",
-                    worker.getWorkerId(), worker.getTimeUsed(), worker.getTimeIdle(), worker.getFatigue(), worker.isBusy());
-        }   
+                    worker.getWorkerId(), worker.getTimeUsed(), worker.getTimeIdle(), worker.getFatigue(),
+                    worker.isBusy());
+        }
         return report;
     }
 }
