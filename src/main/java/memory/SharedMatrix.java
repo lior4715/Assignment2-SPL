@@ -27,23 +27,19 @@ public class SharedMatrix {
 
     public void loadColumnMajor(double[][] matrix) {
         // TODO: replace internal data with new column-major matrix
-        this.vectors = new SharedVector[matrix[0].length];
-        for (int i = 0; i < matrix[0].length; i++) {
-            double[] column = new double[matrix.length];
-            for (int j = 0; j < matrix.length; j++) {
-                column[j] = matrix[j][i];
-            }
-            this.vectors[i] = new SharedVector(column, VectorOrientation.COLUMN_MAJOR);
+        this.vectors = new SharedVector[matrix.length];
+        for (int i = 0; i < matrix.length; i++) {
+            this.vectors[i] = new SharedVector(matrix[i], VectorOrientation.COLUMN_MAJOR);
         }
     }
 
     public double[][] readRowMajor() {
         // TODO: return matrix contents as a row-major double[][]
-        if(vectors.length == 0) {
+        if (vectors.length == 0) {
             return null;
         }
-        
-        if(this.getOrientation() == VectorOrientation.ROW_MAJOR){
+
+        if (this.getOrientation() == VectorOrientation.ROW_MAJOR) {
             double[][] result = new double[vectors.length][vectors[0].length()];
             acquireAllVectorReadLocks(vectors);
             try {
