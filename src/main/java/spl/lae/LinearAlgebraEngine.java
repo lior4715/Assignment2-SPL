@@ -19,6 +19,7 @@ public class LinearAlgebraEngine {
 
     public ComputationNode run(ComputationNode computationRoot) {
         // TODO: resolve computation tree step by step until final matrix is produced
+        try{
         while (computationRoot.getNodeType() != ComputationNodeType.MATRIX) {
             computationRoot.associativeNesting();
             ComputationNode resolvableNode = computationRoot.findResolvable();
@@ -33,6 +34,14 @@ public class LinearAlgebraEngine {
         }
         return computationRoot;
     }
+    finally {
+        try {
+            executor.shutdown();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}
 
     public void loadAndCompute(ComputationNode node) {
         // TODO: load operand matrices
